@@ -1,0 +1,22 @@
+{% extends 'base.html'%}
+{% load static%}
+{% block content %}
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server List</title>
+</head>
+<body>
+    <h1>Server List</h1>
+    <ul>
+        {% for server in servers %}
+        <li>
+            <a href="{% url 'bandwidth_usage' server.id %}">{{ server.hostname }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
+{% endblock %}
