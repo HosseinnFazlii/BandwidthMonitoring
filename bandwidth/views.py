@@ -108,5 +108,5 @@ def bandwidth_usage_view(request, server_id):
 
 def server_list_view(request):
     servers = Server.objects.all()
-    return render(request, 'templates/bandwidth/server_list.html', {'servers': servers})
+    return render(request, 'bandwidth/server_list.html', {'servers': servers})
 
