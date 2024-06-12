@@ -15,5 +15,6 @@ pillow
 djangorestframework
 markdown       # Markdown support for the browsable API.
 django-filter 
-drf-yasg[validation]
-django_crontab
+drf-yasg[validation]   
+celery
+redis

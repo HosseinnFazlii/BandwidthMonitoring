@@ -1,10 +1,16 @@
 # bandwidth/tasks.py
+
+from celery import shared_task
 import requests
+import logging
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from .models import Server
 
+logger = logging.getLogger('bandwidth')
+
+@shared_task
 def calculate_bandwidth_for_server(server_id):
+    logger.debug(f"Starting bandwidth calculation for server {server_id}")
     server = get_object_or_404(Server, id=server_id)
     
     hostname = server.panel_ipaddress
@@ -41,9 +47,9 @@ def calculate_bandwidth_for_server(server_id):
         server.free_bandwidth_gb = free_bandwidth / 1024
         server.save()
 
-        if used_bandwidth >= 0.1 * limit_bandwidth:
-            message = (f"Alert! Used bandwidth is over 80% "
-                       f" you vps host name is  ({server.hostname}).")
+        if used_bandwidth >= 0.8 * limit_bandwidth:
+            message = (f"Alert! Used bandwidth is at {server.used_bandwidth_gb:.2f} GB which is over 80% "
+                       f"of the limit ({server.limit_bandwidth_gb:.2f} GB), you vps id is ({server.hostname}).")
             
             telegram_url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
             telegram_params1 = {'chat_id': telegram_chat_id1, 'text': message}
@@ -52,13 +58,17 @@ def calculate_bandwidth_for_server(server_id):
             requests.get(telegram_url, params=telegram_params1)
             requests.get(telegram_url, params=telegram_params2)
 
-    except requests.RequestException as e:
-        print("Error:", e)
-    except ValueError as e:
-        print("Error parsing JSON response:", e)
+        logger.debug(f"Bandwidth calculation completed for server {server_id}")
 
-# bandwidth/tasks.py
+    except requests.RequestException as e:
+        logger.error(f"Error during bandwidth calculation for server {server_id}: {e}")
+    except ValueError as e:
+        logger.error(f"Error parsing JSON response for server {server_id}: {e}")
+
+@shared_task
 def calculate_bandwidth_for_all_servers():
+    logger.debug("Starting bandwidth calculation for all servers")
     servers = Server.objects.all()
     for server in servers:
-        calculate_bandwidth_for_server(server.id)
+        calculate_bandwidth_for_server.delay(server.id)
+    logger.debug("Bandwidth calculation completed for all servers")

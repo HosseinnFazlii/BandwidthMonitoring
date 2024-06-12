@@ -23,9 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-qrpf%-y*1eteb0c1ep^^)ra&-69h!uwf616r7t=_&4deqpjx9#'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['www.generalblue.ir','generalblue.ir']
+ALLOWED_HOSTS = ['www.generalblue.ir','generalblue.ir',"127.0.0.1"]
 
 
 # Application definition
@@ -37,7 +37,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_crontab',
     'bandwidth'
 ]
 
@@ -142,5 +141,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # crontab
 CRONJOBS = [
-    ('* * * * *', 'bandwidth.tasks.calculate_bandwidth_for_all_servers')
+    ('* * * * *', 'bandwidth.tasks.calculate_bandwidth_for_all_servers','>> /cron/django_cron.10g 2>&1')
 ]
+
+
+
+# settings.py
+
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+
+CELERY_BEAT_SCHEDULE = {
+    'calculate-bandwidth-every-minute': {
+        'task': 'bandwidth.tasks.calculate_bandwidth_for_all_servers',
+        'schedule': 60.0,  # Run every minute
+    },
+}
