@@ -14,6 +14,7 @@ class Server(models.Model):
     used_bandwidth_gb=models.CharField(max_length=255)
     limit_bandwidth_gb=models.CharField(max_length=255)
     free_bandwidth_gb=models.CharField(max_length=255)
+    scheme = models.CharField(max_length=5, choices=[('http', 'http'), ('https', 'https')], default='https')
 
    
 

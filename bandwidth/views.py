@@ -10,6 +10,7 @@ def bandwidth_usage_view(request, server_id):
     
     # Get the current month in the format YYYYMM
          # Replace these values with your actual server details
+    scheme = server.scheme     
     hostname = server.panel_ipaddress
     port = server.panel_port
     api_key = server.api_key
@@ -22,7 +23,7 @@ def bandwidth_usage_view(request, server_id):
     telegram_chat_id2=server.chat_ID2
 
 # Construct the URL
-    url = f"http://{hostname}:{port}/index.php"
+    url = f"{scheme}://{hostname}:{port}/index.php"
 
 # Construct the query parameters
     params = {
