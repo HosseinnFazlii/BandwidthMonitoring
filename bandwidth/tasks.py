@@ -22,7 +22,7 @@ def calculate_bandwidth_for_server(server_id):
     telegram_bot_token = server.telegramAPItoken
     telegram_chat_id1 = server.chat_ID1
     telegram_chat_id2 = server.chat_ID2
-
+    
     url = f"http://{hostname}:{port}/index.php"
     params = {
         'act': 'vpsmanage',
