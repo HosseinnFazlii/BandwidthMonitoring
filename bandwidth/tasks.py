@@ -47,16 +47,6 @@ def calculate_bandwidth_for_server(server_id):
         server.free_bandwidth_gb = free_bandwidth / 1024
         server.save()
 
-        if server.free_bandwidth_gb <= 300:
-            message = (f"Alert! Used bandwidth is at {server.used_bandwidth_gb:.2f} GB which is less than 300GB "
-                       f"of the limit ({server.limit_bandwidth_gb:.2f} GB), you vps id is ({server.hostname}).")
-            
-            telegram_url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
-            telegram_params1 = {'chat_id': telegram_chat_id1, 'text': message}
-            telegram_params2 = {'chat_id': telegram_chat_id2, 'text': message}
-            
-            requests.get(telegram_url, params=telegram_params1)
-            requests.get(telegram_url, params=telegram_params2)
 
         logger.debug(f"Bandwidth calculation completed for server {server_id}")
 
