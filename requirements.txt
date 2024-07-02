@@ -18,3 +18,5 @@ django-filter
 drf-yasg[validation]   
 celery
 redis
+django-rest-framework
+python-telegram-bot
