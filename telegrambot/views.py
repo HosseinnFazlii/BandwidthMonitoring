@@ -1,7 +1,7 @@
 import logging
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -17,7 +17,7 @@ from bandwidth.models import Server
 
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+TELEGRAM_TOKEN = '7440118014:AAGraEs0pKtqjLCq2E6hK_i7tg2sFM2pkk4'
 
 # States for the conversation
 (
@@ -38,18 +38,19 @@ TELEGRAM_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
 ) = range(14)
 
 # Define the general keyboard
-general_keyboard = [
-    ['Register Server', 'List Servers'],
-    ['Help']
-]
-
-reply_markup = ReplyKeyboardMarkup(general_keyboard, one_time_keyboard=True, resize_keyboard=True)
+general_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton('Register Server'), KeyboardButton('List Servers')],
+        [KeyboardButton('Help')]
+    ],
+    resize_keyboard=True
+)
 
 # Define the bot commands and handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         'Welcome to the Django monitoring bot! Use the keyboard below to navigate:',
-        reply_markup=reply_markup
+        reply_markup=general_keyboard
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -62,7 +63,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text(
         '\n'.join(commands),
-        reply_markup=reply_markup
+        reply_markup=general_keyboard
     )
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -160,19 +161,19 @@ async def scheme(update: Update, context: ContextTypes.DEFAULT_TYPE):
         scheme=context.user_data['scheme'],
     )
 
-    await update.message.reply_text('Server registered successfully!', reply_markup=reply_markup)
+    await update.message.reply_text('Server registered successfully!', reply_markup=general_keyboard)
     return ConversationHandler.END
 
 # Fallback handler
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Registration cancelled.', reply_markup=reply_markup)
+    await update.message.reply_text('Registration cancelled.', reply_markup=general_keyboard)
     return ConversationHandler.END
 
 # Handler to list all servers
 async def list_servers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     servers = await sync_to_async(list)(Server.objects.all())
     if not servers:
-        await update.message.reply_text('No servers registered.', reply_markup=reply_markup)
+        await update.message.reply_text('No servers registered.', reply_markup=general_keyboard)
         return
 
     keyboard = [
