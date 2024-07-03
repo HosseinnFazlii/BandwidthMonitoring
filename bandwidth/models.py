@@ -15,4 +15,8 @@ class Server(models.Model):
     limit_bandwidth_gb = models.CharField(max_length=255)
     free_bandwidth_gb = models.CharField(max_length=255)
     scheme = models.CharField(max_length=5, choices=[('http', 'http'), ('https', 'https')], default='https')
-    user_id = models.IntegerField(help_text="Telegram user ID")  # Add this field
+    user_id = models.IntegerField(help_text="Telegram user ID")
+
+class UserProfile(models.Model):
+    user_id = models.IntegerField(unique=True, help_text="Telegram user ID")
+    role = models.CharField(max_length=10, choices=[('superadmin', 'Superadmin'), ('admin', 'Admin'), ('user', 'User')], default='user')
