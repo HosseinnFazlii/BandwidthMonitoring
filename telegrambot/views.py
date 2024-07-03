@@ -40,16 +40,16 @@ TELEGRAM_TOKEN = '7440118014:AAGraEs0pKtqjLCq2E6hK_i7tg2sFM2pkk4'
 # Define the general keyboard
 general_keyboard = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton('Register Server'), KeyboardButton('List Servers')],
-        [KeyboardButton('Help')]
+        [KeyboardButton('List Servers'), KeyboardButton('Help')]
     ],
     resize_keyboard=True
 )
 
 # Define the bot commands and handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
     await update.message.reply_text(
-        'Welcome to the Django monitoring bot! Use the keyboard below to navigate:',
+        f'Welcome to the Django monitoring bot! Your user ID is {user_id}. Use the keyboard below to navigate:',
         reply_markup=general_keyboard
     )
 
@@ -72,6 +72,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Conversation entry point for registering a server
 async def register_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['user_id'] = update.message.from_user.id
     await update.message.reply_text('Please enter the hostname of the server:')
     return HOSTNAME
 
@@ -159,6 +160,7 @@ async def scheme(update: Update, context: ContextTypes.DEFAULT_TYPE):
         limit_bandwidth_gb=context.user_data['limit_bandwidth_gb'],
         free_bandwidth_gb=context.user_data['free_bandwidth_gb'],
         scheme=context.user_data['scheme'],
+        user_id=context.user_data['user_id'],  # Save the user ID
     )
 
     await update.message.reply_text('Server registered successfully!', reply_markup=general_keyboard)
@@ -169,9 +171,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Registration cancelled.', reply_markup=general_keyboard)
     return ConversationHandler.END
 
-# Handler to list all servers
+# Handler to list all servers for the current user
 async def list_servers(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    servers = await sync_to_async(list)(Server.objects.all())
+    user_id = update.message.from_user.id
+    servers = await sync_to_async(list)(Server.objects.filter(user_id=user_id))
     if not servers:
         await update.message.reply_text('No servers registered.', reply_markup=general_keyboard)
         return
@@ -237,6 +240,10 @@ async def back_to_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await list_servers(query, context)
 
+# Handler for Help button
+async def help_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await help_command(update, context)
+
 @csrf_exempt
 def webhook(request):
     if request.method == 'POST':
@@ -273,6 +280,11 @@ application.add_handler(CommandHandler('help', help_command))
 application.add_handler(CommandHandler('status', status))
 application.add_handler(conv_handler)
 application.add_handler(CommandHandler('listservers', list_servers))
+application.add_handler(MessageHandler(filters.TEXT & filters.Regex('^(Help)$'), help_button))
+application.add_handler(MessageHandler(filters.TEXT & filters.Regex('^(List Servers)$'), list_servers))
 application.add_handler(CallbackQueryHandler(server_details, pattern='^\d+$'))
 application.add_handler(CallbackQueryHandler(delete_server, pattern='^delete_server$'))
 application.add_handler(CallbackQueryHandler(back_to_list, pattern='^back_to_list$'))
+
+if __name__ == "__main__":
+    application.run_polling()
