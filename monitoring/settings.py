@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -158,3 +159,7 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': 60.0,  # Run every minute
     },
 }
+
+
+SUPERADMIN_ID = config('SUPERADMIN_ID', default=None, cast=int)
+TELEGRAM_TOKEN = config('TELEGRAM_TOKEN', default='your_default_token')

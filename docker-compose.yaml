@@ -7,9 +7,8 @@ services:
     - ./:/app
     ports:
       - "8000:8000"
-    # environment:
-    #   - SECRET_KEY=test
-    #   - DEBUG=True
+    env_file:  # Add this line
+      - .env   # A
 
     depends_on:
       - redis
