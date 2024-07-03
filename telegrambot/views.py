@@ -13,11 +13,14 @@ from telegram.ext import (
 )
 import json
 from asgiref.sync import sync_to_async
-from bandwidth.models import Server
+from decouple import config
+from bandwidth.models import Server, UserProfile
 
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = '7440118014:AAGraEs0pKtqjLCq2E6hK_i7tg2sFM2pkk4'
+# Load environment variables
+TELEGRAM_TOKEN = config('TELEGRAM_TOKEN')
+SUPERADMIN_ID = config('SUPERADMIN_ID', default=None, cast=int)
 
 # States for the conversation
 (
@@ -35,22 +38,31 @@ TELEGRAM_TOKEN = '7440118014:AAGraEs0pKtqjLCq2E6hK_i7tg2sFM2pkk4'
     LIMIT_BANDWIDTH,
     FREE_BANDWIDTH,
     SCHEME,
-) = range(14)
+    ADMIN_ID,
+    ROLE,
+) = range(16)
 
 # Define the general keyboard
-general_keyboard = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton('List Servers'), KeyboardButton('Help')]
-    ],
-    resize_keyboard=True
-)
+def get_general_keyboard(user_id):
+    if user_id == SUPERADMIN_ID:
+        keyboard = [
+            [KeyboardButton('List Servers'), KeyboardButton('Help')],
+            [KeyboardButton('Admin')]
+        ]
+    else:
+        keyboard = [
+            [KeyboardButton('List Servers'), KeyboardButton('Help')]
+        ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # Define the bot commands and handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+    await sync_to_async(UserProfile.objects.get_or_create)(user_id=user_id)
+    keyboard = get_general_keyboard(user_id)
     await update.message.reply_text(
         f'Welcome to the Django monitoring bot! Your user ID is {user_id}. Use the keyboard below to navigate:',
-        reply_markup=general_keyboard
+        reply_markup=keyboard
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -61,9 +73,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '/registerserver - Register a new server',
         '/listservers - List all registered servers',
     ]
+    if update.message.from_user.id == SUPERADMIN_ID:
+        commands.append('/admin - Manage admins (Superadmin only)')
     await update.message.reply_text(
         '\n'.join(commands),
-        reply_markup=general_keyboard
+        reply_markup=get_general_keyboard(update.message.from_user.id)
     )
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -163,20 +177,25 @@ async def scheme(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id=context.user_data['user_id'],  # Save the user ID
     )
 
-    await update.message.reply_text('Server registered successfully!', reply_markup=general_keyboard)
+    await update.message.reply_text('Server registered successfully!', reply_markup=get_general_keyboard(update.message.from_user.id))
     return ConversationHandler.END
 
 # Fallback handler
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Registration cancelled.', reply_markup=general_keyboard)
+    await update.message.reply_text('Registration cancelled.', reply_markup=get_general_keyboard(update.message.from_user.id))
     return ConversationHandler.END
 
 # Handler to list all servers for the current user
 async def list_servers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    servers = await sync_to_async(list)(Server.objects.filter(user_id=user_id))
+    user_profile = await sync_to_async(UserProfile.objects.get)(user_id=user_id)
+    if user_profile.role in ['superadmin', 'admin']:
+        servers = await sync_to_async(list)(Server.objects.all())
+    else:
+        servers = await sync_to_async(list)(Server.objects.filter(user_id=user_id))
+
     if not servers:
-        await update.message.reply_text('No servers registered.', reply_markup=general_keyboard)
+        await update.message.reply_text('No servers registered.', reply_markup=get_general_keyboard(update.message.from_user.id))
         return
 
     keyboard = [
@@ -240,6 +259,37 @@ async def back_to_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await list_servers(query, context)
 
+# Handler to manage admins (Superadmin only)
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if user_id != SUPERADMIN_ID:
+        await update.message.reply_text('Access denied.')
+        return
+
+    await update.message.reply_text('Please enter the user ID of the new admin:')
+    return ADMIN_ID
+
+async def admin_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['admin_id'] = update.message.text
+    await update.message.reply_text('Please enter the role (admin/user):')
+    return ROLE
+
+async def role(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    admin_id = context.user_data['admin_id']
+    role = update.message.text
+
+    if role not in ['admin', 'user']:
+        await update.message.reply_text('Invalid role. Please enter "admin" or "user".')
+        return ROLE
+
+    await sync_to_async(UserProfile.objects.update_or_create)(
+        user_id=admin_id,
+        defaults={'role': role}
+    )
+
+    await update.message.reply_text(f'User {admin_id} has been assigned the role {role}.')
+    return ConversationHandler.END
+
 # Handler for Help button
 async def help_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await help_command(update, context)
@@ -271,6 +321,8 @@ conv_handler = ConversationHandler(
         LIMIT_BANDWIDTH: [MessageHandler(filters.TEXT & ~filters.COMMAND, limit_bandwidth)],
         FREE_BANDWIDTH: [MessageHandler(filters.TEXT & ~filters.COMMAND, free_bandwidth)],
         SCHEME: [MessageHandler(filters.TEXT & ~filters.COMMAND, scheme)],
+        ADMIN_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_id)],
+        ROLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, role)],
     },
     fallbacks=[CommandHandler('cancel', cancel)],
 )
@@ -280,6 +332,7 @@ application.add_handler(CommandHandler('help', help_command))
 application.add_handler(CommandHandler('status', status))
 application.add_handler(conv_handler)
 application.add_handler(CommandHandler('listservers', list_servers))
+application.add_handler(CommandHandler('admin', admin))  # Add this command for managing admins
 application.add_handler(MessageHandler(filters.TEXT & filters.Regex('^(Help)$'), help_button))
 application.add_handler(MessageHandler(filters.TEXT & filters.Regex('^(List Servers)$'), list_servers))
 application.add_handler(CallbackQueryHandler(server_details, pattern='^\d+$'))

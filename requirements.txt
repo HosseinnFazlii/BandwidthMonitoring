@@ -20,4 +20,4 @@ celery
 redis
 django-rest-framework
 python-telegram-bot
-aiogram
+python-decouple
