@@ -38,15 +38,13 @@ SUPERADMIN_ID = config('SUPERADMIN_ID', default=None, cast=int)
     LIMIT_BANDWIDTH,
     FREE_BANDWIDTH,
     SCHEME,
-    ADMIN_ID,
-    ROLE,
-) = range(16)
+) = range(14)
 
 # Define the general keyboard
 def get_general_keyboard(user_id):
     if user_id == SUPERADMIN_ID:
         keyboard = [
-            [KeyboardButton('List Servers'), KeyboardButton('Help')],
+            [KeyboardButton('List Servers'), KeyboardButton('Register Server'), KeyboardButton('Help')],
             [KeyboardButton('Admin')]
         ]
     else:
@@ -58,22 +56,25 @@ def get_general_keyboard(user_id):
 # Define the bot commands and handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    await sync_to_async(UserProfile.objects.get_or_create)(user_id=user_id)
+    user_profile, created = await sync_to_async(UserProfile.objects.get_or_create)(user_id=user_id)
     keyboard = get_general_keyboard(user_id)
     await update.message.reply_text(
         f'Welcome to the Django monitoring bot! Your user ID is {user_id}. Use the keyboard below to navigate:',
         reply_markup=keyboard
     )
 
+    if not created and user_profile.role != 'superadmin':
+        await list_servers(update, context)
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands = [
         '/start - Start the bot',
         '/help - Show this help message',
         '/status - Get the current server status',
-        '/registerserver - Register a new server',
         '/listservers - List all registered servers',
     ]
     if update.message.from_user.id == SUPERADMIN_ID:
+        commands.append('/registerserver - Register a new server')
         commands.append('/admin - Manage admins (Superadmin only)')
     await update.message.reply_text(
         '\n'.join(commands),
@@ -86,7 +87,10 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Conversation entry point for registering a server
 async def register_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['user_id'] = update.message.from_user.id
+    if update.message.from_user.id != SUPERADMIN_ID:
+        await update.message.reply_text('Access denied.')
+        return ConversationHandler.END
+    context.user_data['chat_id1'] = update.message.from_user.id
     await update.message.reply_text('Please enter the hostname of the server:')
     return HOSTNAME
 
@@ -174,7 +178,6 @@ async def scheme(update: Update, context: ContextTypes.DEFAULT_TYPE):
         limit_bandwidth_gb=context.user_data['limit_bandwidth_gb'],
         free_bandwidth_gb=context.user_data['free_bandwidth_gb'],
         scheme=context.user_data['scheme'],
-        user_id=context.user_data['user_id'],  # Save the user ID
     )
 
     await update.message.reply_text('Server registered successfully!', reply_markup=get_general_keyboard(update.message.from_user.id))
@@ -188,11 +191,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Handler to list all servers for the current user
 async def list_servers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    user_profile = await sync_to_async(UserProfile.objects.get)(user_id=user_id)
-    if user_profile.role in ['superadmin', 'admin']:
-        servers = await sync_to_async(list)(Server.objects.all())
-    else:
-        servers = await sync_to_async(list)(Server.objects.filter(user_id=user_id))
+    servers = await sync_to_async(list)(Server.objects.filter(chat_ID1=user_id))
 
     if not servers:
         await update.message.reply_text('No servers registered.', reply_markup=get_general_keyboard(update.message.from_user.id))
@@ -321,8 +320,6 @@ conv_handler = ConversationHandler(
         LIMIT_BANDWIDTH: [MessageHandler(filters.TEXT & ~filters.COMMAND, limit_bandwidth)],
         FREE_BANDWIDTH: [MessageHandler(filters.TEXT & ~filters.COMMAND, free_bandwidth)],
         SCHEME: [MessageHandler(filters.TEXT & ~filters.COMMAND, scheme)],
-        ADMIN_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_id)],
-        ROLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, role)],
     },
     fallbacks=[CommandHandler('cancel', cancel)],
 )

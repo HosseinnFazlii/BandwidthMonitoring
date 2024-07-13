@@ -12,7 +12,7 @@ logger = logging.getLogger('bandwidth')
 def calculate_bandwidth_for_server(server_id):
     logger.debug(f"Starting bandwidth calculation for server {server_id}")
     server = get_object_or_404(Server, id=server_id)
-    
+    scheme = server.scheme   
     hostname = server.panel_ipaddress
     port = server.panel_port
     api_key = server.api_key
@@ -23,7 +23,7 @@ def calculate_bandwidth_for_server(server_id):
     telegram_chat_id1 = server.chat_ID1
     telegram_chat_id2 = server.chat_ID2
     
-    url = f"http://{hostname}:{port}/index.php"
+    url = f"{scheme}://{hostname}:{port}/index.php"
     params = {
         'act': 'vpsmanage',
         'svs': vps_id,
