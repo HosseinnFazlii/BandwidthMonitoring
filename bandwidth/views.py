@@ -62,26 +62,7 @@ def bandwidth_usage_view(request, server_id):
     
 
     # Check if used bandwidth exceeds 80% of the limit
-        if used_bandwidth >= 0.01 * limit_bandwidth:
-        # Send a notification to Telegram
-            message = f"Alert! Used bandwidth is at {server.used_bandwidth_gb:.2f} GB which is over 80% of the limit ({server.limit_bandwidth_gb:.2f} GB), you vps id is ({server.hostname})."
-        
-            telegram_url1 = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
-            telegram_url2 = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
-            telegram_params1 = {
-                'chat_id': telegram_chat_id1,
-                'text': message
-            }
-            telegram_params2 = {
-                'chat_id': telegram_chat_id2,
-                'text': message
-            }
-        
-            telegram_response1 = requests.get(telegram_url1, params=telegram_params1)
-            telegram_response2 = requests.get(telegram_url2, params=telegram_params2)
-            response1=telegram_response1.raise_for_status()
-            response2=telegram_response2.raise_for_status()  # Raise an HTTPError on bad response
-            
+       
 
     except requests.RequestException as e:
         print("Error:", e)
